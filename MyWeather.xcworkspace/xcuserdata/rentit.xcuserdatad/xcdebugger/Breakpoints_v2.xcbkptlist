@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Bucket
-   type = "1"
+   type = "0"
    version = "2.0">
    <Breakpoints>
       <BreakpointProxy
@@ -10,12 +10,12 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "MyWeather/ViewController.m"
-            timestampString = "472058653.960407"
+            timestampString = "472059934.32183"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "100"
-            endingLineNumber = "100"
-            landmarkName = "-setupLayout"
+            startingLineNumber = "138"
+            endingLineNumber = "138"
+            landmarkName = "-startUpdateLocation"
             landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>

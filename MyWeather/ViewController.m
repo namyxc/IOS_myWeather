@@ -9,8 +9,10 @@
 #import "ViewController.h"
 #import <AFNetworking/AFNetworking.h>
 #import <AFNetworking/UIImageView+AFNetworking.h>
+#import <CoreLocation/CoreLocation.h>
 
-@interface ViewController ()
+@interface ViewController () <CLLocationManagerDelegate>
+
 @property (nonatomic, strong) UILabel *cityNameLabel;
 @property (nonatomic, strong) UILabel *currentDescription;
 @property (nonatomic, strong) UIImageView *currentIcon;
@@ -24,7 +26,7 @@
 @property (weak, nonatomic) IBOutlet UIImageView *arrowImageView;
 @property (nonatomic, strong) NSDictionary *currentWeatherData;
 
-
+@property (nonatomic, strong) CLLocationManager *locationManager ;
 
 @end
 
@@ -47,9 +49,8 @@
     
     [self setupLayout];
     
-    [self updateLabelsWithData];
     
-    [self fetchCurrentWeather];
+    [self startUpdateLocation];
 }
 /*
 -(UIStatusBarStyle) preferredStatusBarStyle {
@@ -119,11 +120,55 @@
     [self.view addConstraints:horizontalConstraints];
 }
 
-
-
--(void) fetchCurrentWeather {
+- (void) startUpdateLocation{
+    if ([CLLocationManager locationServicesEnabled]) {
+        self.locationManager = [CLLocationManager new];
+        
+        if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusNotDetermined) {
+            [self.locationManager requestWhenInUseAuthorization];
+        }
+        self.locationManager.distanceFilter = 500;
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers;
+        
+        self.locationManager.delegate = self;
+        
+        [self.locationManager startUpdatingLocation];
+        
+        if ([CLLocationManager headingAvailable]) {
+            [self.locationManager startUpdatingHeading];
+        }
+        
+    }else{
+        
+    }
     
-    NSDictionary *parameters = @{@"q": @"Budapest, hu",
+}
+
+#define DEGREES_TO_RADIANS(degrees)((M_PI * degrees)/180)
+-(void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations{
+    if ([locations count] > 0) {
+        CLLocation *location = [locations lastObject];
+        [self fetchCurrentWeatherWithLocation:location];
+        NSLog(@"location: %@", location);
+        
+        self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS( [self.currentWeatherData[@"wind"][@"deg"] doubleValue]));
+    }
+    
+}
+
+
+-(void) locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)newHeading{
+    NSLog(@"newHeading: %@", newHeading);
+    self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS(newHeading.trueHeading + [self.currentWeatherData[@"wind"][@"deg"] doubleValue]));
+
+}
+
+
+-(void) fetchCurrentWeatherWithLocation: (CLLocation *)location {
+    
+    NSDictionary *parameters = @{//@"q": @"Budapest, hu",
+                                 @"lat": @(location.coordinate.latitude),
+                                 @"lon": @(location.coordinate.longitude),
                                  @"appid": @"2de143494c0b295cca9337e1e96b00e0",
                                  @"units": @"metric"};
     __weak ViewController *weakSelf = self;
