@@ -8,9 +8,12 @@
 
 #import "ViewController.h"
 #import <AFNetworking/AFNetworking.h>
+#import <AFNetworking/UIImageView+AFNetworking.h>
 
 @interface ViewController ()
 @property (nonatomic, strong) UILabel *cityNameLabel;
+@property (nonatomic, strong) UILabel *currentDescription;
+@property (nonatomic, strong) UIImageView *currentIcon;
 @property (nonatomic, strong) UILabel *currentTemperatureLabel;
 @property (nonatomic, strong) UILabel *currentPressureLabel;
 @property (nonatomic, strong) UILabel *currentHumidityLabel;
@@ -22,6 +25,7 @@
 @property (nonatomic, strong) NSDictionary *currentWeatherData;
 
 
+
 @end
 
 @implementation ViewController
@@ -31,6 +35,8 @@
     // Do any additional setup after loading the view, typically from a nib.
     
     self.cityNameLabel =[UILabel new];
+    self.currentDescription =[UILabel new];
+    self.currentIcon = [UIImageView new];
     self.currentTemperatureLabel =[UILabel new];
     self.currentPressureLabel =[UILabel new];
     self.currentHumidityLabel =[UILabel new];
@@ -52,7 +58,7 @@
 */
 -(void) setupLayout{
     
-    NSArray *labels = @[self.cityNameLabel, self.currentTemperatureLabel, self.currentPressureLabel, self.currentHumidityLabel, self.minTemperatureLabel, self.maxTemperatureLabel, self.sunriseLabel, self.sunsetLabel];
+    NSArray *labels = @[self.cityNameLabel, self.currentTemperatureLabel, self.currentPressureLabel, self.currentHumidityLabel, self.minTemperatureLabel, self.maxTemperatureLabel, self.sunriseLabel, self.sunsetLabel, self.currentDescription];
     
     for (UILabel *label in labels) {
         label.font = [UIFont systemFontOfSize:22];
@@ -64,14 +70,23 @@
     self.cityNameLabel.font = [UIFont systemFontOfSize:35];
     self.cityNameLabel.textAlignment = NSTextAlignmentCenter;
     self.currentTemperatureLabel.textAlignment = NSTextAlignmentCenter;
+    [self.view addSubview: _currentIcon];
+    self.currentIcon.translatesAutoresizingMaskIntoConstraints = NO;
+    self.currentIcon.backgroundColor = [UIColor whiteColor];
+    self.currentDescription.textAlignment = NSTextAlignmentCenter;
+
     
     [self.sunriseLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     
     NSMutableArray *verticalConstraints = [NSMutableArray new];
     NSMutableArray *horizontalConstraints = [NSMutableArray new];
     
+    [horizontalConstraints addObject:[NSLayoutConstraint constraintWithItem:self.currentIcon attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:self.currentIcon.superview attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
+    
     NSDictionary *views = NSDictionaryOfVariableBindings(
                                                          _cityNameLabel,
+                                                         _currentDescription,
+                                                         _currentIcon,
                                                          _currentTemperatureLabel,
                                                          _currentPressureLabel,
                                                          _currentHumidityLabel,
@@ -82,10 +97,10 @@
                                                          _arrowImageView);
     
     [verticalConstraints addObjectsFromArray:
-     [NSLayoutConstraint constraintsWithVisualFormat:@"V:|-30-[_cityNameLabel(<=50)]-0-[_currentTemperatureLabel(<=20)]-[_arrowImageView]-[_minTemperatureLabel]-[_maxTemperatureLabel]-[_currentPressureLabel]-[_currentHumidityLabel]-[_sunriseLabel]->=0-|" options:0 metrics:nil views:views]];
+     [NSLayoutConstraint constraintsWithVisualFormat:@"V:|-30-[_cityNameLabel(<=50)]-0-[_currentTemperatureLabel(<=20)]-[_currentIcon(50)]-[_currentDescription]-[_arrowImageView]-[_minTemperatureLabel]-[_maxTemperatureLabel]-[_currentPressureLabel]-[_currentHumidityLabel]->=0-[_sunriseLabel]-15-|" options:0 metrics:nil views:views]];
     
-    [verticalConstraints addObjectsFromArray:
-     [NSLayoutConstraint constraintsWithVisualFormat:@"V:[_currentHumidityLabel]-[_sunsetLabel]" options:0 metrics:nil views:views]];
+    
+    [verticalConstraints addObject:[NSLayoutConstraint constraintWithItem:self.sunriseLabel attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:self.sunsetLabel attribute:NSLayoutAttributeTop multiplier:1 constant:0]];
     
     [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_cityNameLabel]-|" options:0 metrics:nil views:views]];
     [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_currentTemperatureLabel]-|" options:0 metrics:nil views:views]];
@@ -95,9 +110,16 @@
     [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_maxTemperatureLabel]-|" options:0 metrics:nil views:views]];
     [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_sunriseLabel][_sunsetLabel]-|" options:0 metrics:nil views:views]];
     
+    [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[_currentDescription]-|" options:0 metrics:nil views:views]];
+    
+    [horizontalConstraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|->=0-[_currentIcon(50)]->=0-|" options:0 metrics:nil views:views]];
+
+    
     [self.view addConstraints:verticalConstraints];
     [self.view addConstraints:horizontalConstraints];
 }
+
+
 
 -(void) fetchCurrentWeather {
     
@@ -114,7 +136,11 @@
         NSLog(@"%@", responseObject);
         weakSelf.currentWeatherData = responseObject;
         [weakSelf updateLabelsWithData];
-    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        
+        NSString *iconUrl = [NSString stringWithFormat:@"http://openweathermap.org/img/w/%@.png", responseObject[@"weather"][0][@"icon"]];
+        
+        [self.currentIcon setImageWithURL:[NSURL URLWithString:iconUrl]];
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         NSLog(@"Error: %@", error);
         self.cityNameLabel.text = @"ERROR";
     }];
@@ -144,6 +170,7 @@
     self.sunriseLabel.text = [NSString stringWithFormat:@"Daylight: %@ - ", [dateFormatter stringFromDate: sunrise]];
 
     self.sunsetLabel.text = [NSString stringWithFormat:@"%@", [dateFormatter stringFromDate: sunset]];
+    self.currentDescription.text =self.currentWeatherData[@"weather"][0][@"description"];
 ;
 }
 
