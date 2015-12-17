@@ -19,6 +19,7 @@
 @property (nonatomic, strong) UILabel *sunriseLabel;
 @property (nonatomic, strong) UILabel *sunsetLabel;
 @property (weak, nonatomic) IBOutlet UIImageView *arrowImageView;
+@property (nonatomic, strong) NSDictionary *currentWeatherData;
 
 
 @end
@@ -41,8 +42,14 @@
     [self setupLayout];
     
     [self updateLabelsWithData];
+    
+    [self fetchCurrentWeather];
 }
-
+/*
+-(UIStatusBarStyle) preferredStatusBarStyle {
+    return UIStatusBarStyleLightContent;
+}
+*/
 -(void) setupLayout{
     
     NSArray *labels = @[self.cityNameLabel, self.currentTemperatureLabel, self.currentPressureLabel, self.currentHumidityLabel, self.minTemperatureLabel, self.maxTemperatureLabel, self.sunriseLabel, self.sunsetLabel];
@@ -93,26 +100,51 @@
 }
 
 -(void) fetchCurrentWeather {
-    /*NSURL *url = [NSURL URLWithString:@"http://api.openweathermap.org/data/2.5/weather?q=Budapest,hu&appid=2de143494c0b295cca9337e1e96b00e0"];
     
-    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
-    AFURLSessionManager *manager = [[AFURLSessionManager alloc] initWithSessionConfiguration:configuration];
+    NSDictionary *parameters = @{@"q": @"Budapest, hu",
+                                 @"appid": @"2de143494c0b295cca9337e1e96b00e0",
+                                 @"units": @"metric"};
+    __weak ViewController *weakSelf = self;
     
-    NSURLSessionDataTask *task =
-     */
+    NSString *urlString = @"http://api.openweathermap.org/data/2.5/weather";
+    
+    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    
+    [manager GET:urlString parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        NSLog(@"%@", responseObject);
+        weakSelf.currentWeatherData = responseObject;
+        [weakSelf updateLabelsWithData];
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        NSLog(@"Error: %@", error);
+        self.cityNameLabel.text = @"ERROR";
+    }];
+    
     
 }
 
 
 - (void) updateLabelsWithData{
-    self.cityNameLabel.text = @"Budapest";
-    self.currentTemperatureLabel.text = @"32 C";
-    self.currentPressureLabel.text = @"3532";
-    self.currentHumidityLabel.text = @"85";
-    self.minTemperatureLabel.text = @"Minimum temperature today: 12 C";
-    self.maxTemperatureLabel.text = @"Maximum temperature today: 35 C";
-    self.sunriseLabel.text = @"Daylight: 5:35AM - ";
-    self.sunsetLabel.text = @"6:25 AM";
+    self.cityNameLabel.text = self.currentWeatherData[@"name"];
+    self.currentTemperatureLabel.text = [NSString stringWithFormat:@"%@ °C", self.currentWeatherData[@"main"][@"temp"]];
+    
+    self.currentPressureLabel.text = [NSString stringWithFormat:@"Current pressure: %@ hPa", self.currentWeatherData[@"main"][@"pressure"]];
+    self.currentHumidityLabel.text = [NSString stringWithFormat:@"Current humidity: %@ %%", self.currentWeatherData[@"main"][@"humidity"]];
+    
+    self.minTemperatureLabel.text = [NSString stringWithFormat:@"Minimum temperature today: %@ °C", self.currentWeatherData[@"main"][@"temp_min"]];
+    self.maxTemperatureLabel.text = [NSString stringWithFormat:@"Maximum temperature today: %@ °C", self.currentWeatherData[@"main"][@"temp_max"]];
+    
+    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+    dateFormatter.dateFormat = @"HH:mm";
+    
+    NSTimeInterval sunriseTimeStamp = [self.currentWeatherData[@"sys"][@"sunrise"] doubleValue];
+    NSTimeInterval sunsetTimeStamp = [self.currentWeatherData[@"sys"][@"sunset"] doubleValue];
+    
+    NSDate *sunrise = [NSDate dateWithTimeIntervalSince1970:sunriseTimeStamp];
+    NSDate *sunset = [NSDate dateWithTimeIntervalSince1970:sunsetTimeStamp];
+    self.sunriseLabel.text = [NSString stringWithFormat:@"Daylight: %@ - ", [dateFormatter stringFromDate: sunrise]];
+
+    self.sunsetLabel.text = [NSString stringWithFormat:@"%@", [dateFormatter stringFromDate: sunset]];
+;
 }
 
 - (void)didReceiveMemoryWarning {
