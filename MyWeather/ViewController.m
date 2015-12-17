@@ -18,6 +18,7 @@
 @property (nonatomic, strong) UILabel *maxTemperatureLabel;
 @property (nonatomic, strong) UILabel *sunriseLabel;
 @property (nonatomic, strong) UILabel *sunsetLabel;
+@property (weak, nonatomic) IBOutlet UIImageView *arrowImageView;
 
 
 @end
@@ -43,40 +44,21 @@
 }
 
 -(void) setupLayout{
+    
+    NSArray *labels = @[self.cityNameLabel, self.currentTemperatureLabel, self.currentPressureLabel, self.currentHumidityLabel, self.minTemperatureLabel, self.maxTemperatureLabel, self.sunriseLabel, self.sunsetLabel];
+    
+    for (UILabel *label in labels) {
+        label.font = [UIFont systemFontOfSize:22];
+        label.textColor = [UIColor whiteColor];
+        label.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.view addSubview:label];
+    }
 
     self.cityNameLabel.font = [UIFont systemFontOfSize:35];
     self.cityNameLabel.textAlignment = NSTextAlignmentCenter;
-    
-    self.currentTemperatureLabel.font = [UIFont systemFontOfSize:22];
     self.currentTemperatureLabel.textAlignment = NSTextAlignmentCenter;
     
-    self.minTemperatureLabel.font = [UIFont systemFontOfSize:22];
-    self.maxTemperatureLabel.font = [UIFont systemFontOfSize:22];
-    self.currentPressureLabel.font = [UIFont systemFontOfSize:22];
-    self.currentHumidityLabel.font = [UIFont systemFontOfSize:22];
-    
-    self.sunriseLabel.font = [UIFont systemFontOfSize:22];
-    self.sunsetLabel.font = [UIFont systemFontOfSize:22];
     [self.sunriseLabel setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-
-    
-    self.cityNameLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.currentTemperatureLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.currentPressureLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.currentHumidityLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.minTemperatureLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.maxTemperatureLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.sunriseLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.sunsetLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    
-    [self.view addSubview:self.cityNameLabel];
-    [self.view addSubview:self.currentTemperatureLabel];
-    [self.view addSubview:self.currentPressureLabel];
-    [self.view addSubview:self.currentHumidityLabel];
-    [self.view addSubview:self.minTemperatureLabel];
-    [self.view addSubview:self.maxTemperatureLabel];
-    [self.view addSubview:self.sunriseLabel];
-    [self.view addSubview:self.sunsetLabel];
     
     NSMutableArray *verticalConstraints = [NSMutableArray new];
     NSMutableArray *horizontalConstraints = [NSMutableArray new];
@@ -89,10 +71,11 @@
                                                          _minTemperatureLabel,
                                                          _maxTemperatureLabel,
                                                          _sunriseLabel,
-                                                         _sunsetLabel);
+                                                         _sunsetLabel,
+                                                         _arrowImageView);
     
     [verticalConstraints addObjectsFromArray:
-     [NSLayoutConstraint constraintsWithVisualFormat:@"V:|-30-[_cityNameLabel(<=50)]-0-[_currentTemperatureLabel(<=20)]-75-[_minTemperatureLabel]-[_maxTemperatureLabel]-[_currentPressureLabel]-[_currentHumidityLabel]-[_sunriseLabel]->=0-|" options:0 metrics:nil views:views]];
+     [NSLayoutConstraint constraintsWithVisualFormat:@"V:|-30-[_cityNameLabel(<=50)]-0-[_currentTemperatureLabel(<=20)]-[_arrowImageView]-[_minTemperatureLabel]-[_maxTemperatureLabel]-[_currentPressureLabel]-[_currentHumidityLabel]-[_sunriseLabel]->=0-|" options:0 metrics:nil views:views]];
     
     [verticalConstraints addObjectsFromArray:
      [NSLayoutConstraint constraintsWithVisualFormat:@"V:[_currentHumidityLabel]-[_sunsetLabel]" options:0 metrics:nil views:views]];
