@@ -10,6 +10,7 @@
 #import <AFNetworking/AFNetworking.h>
 #import <AFNetworking/UIImageView+AFNetworking.h>
 #import <CoreLocation/CoreLocation.h>
+#import <Promisekit/PromiseKit.h>
 
 @interface ViewController () <CLLocationManagerDelegate>
 
@@ -24,7 +25,7 @@
 @property (nonatomic, strong) UILabel *sunriseLabel;
 @property (nonatomic, strong) UILabel *sunsetLabel;
 @property (weak, nonatomic) IBOutlet UIImageView *arrowImageView;
-@property (nonatomic, strong) NSDictionary *currentWeatherData;
+@property (assign, nonatomic)  CGFloat windDirection;
 
 @property (nonatomic, strong) CLLocationManager *locationManager ;
 
@@ -148,10 +149,9 @@
 -(void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations{
     if ([locations count] > 0) {
         CLLocation *location = [locations lastObject];
-        [self fetchCurrentWeatherWithLocation:location];
+        [self downloadCurrentWeatherAndUpdateUIWithLocation:location];
         NSLog(@"location: %@", location);
         
-        self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS( [self.currentWeatherData[@"wind"][@"deg"] doubleValue]));
     }
     
 }
@@ -159,63 +159,92 @@
 
 -(void) locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)newHeading{
     NSLog(@"newHeading: %@", newHeading);
-    self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS(newHeading.trueHeading + [self.currentWeatherData[@"wind"][@"deg"] doubleValue]));
-
+    self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS(-newHeading.trueHeading + self.windDirection + 270));
+    
 }
 
-
--(void) fetchCurrentWeatherWithLocation: (CLLocation *)location {
-    
-    NSDictionary *parameters = @{//@"q": @"Budapest, hu",
-                                 @"lat": @(location.coordinate.latitude),
-                                 @"lon": @(location.coordinate.longitude),
-                                 @"appid": @"2de143494c0b295cca9337e1e96b00e0",
-                                 @"units": @"metric"};
-    __weak ViewController *weakSelf = self;
-    
-    NSString *urlString = @"http://api.openweathermap.org/data/2.5/weather";
-    
-    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
-    
-    [manager GET:urlString parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
-        NSLog(@"%@", responseObject);
-        weakSelf.currentWeatherData = responseObject;
-        [weakSelf updateLabelsWithData];
-        
-        NSString *iconUrl = [NSString stringWithFormat:@"http://openweathermap.org/img/w/%@.png", responseObject[@"weather"][0][@"icon"]];
-        
-        [self.currentIcon setImageWithURL:[NSURL URLWithString:iconUrl]];
-            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+-(void)downloadCurrentWeatherAndUpdateUIWithLocation: (CLLocation *)location{
+    [self fetchCurrentWeatherWithLocation:location].then(^(NSDictionary *weatherData){
+        [self updateLabelsWithData:weatherData];
+        self.windDirection = [weatherData[@"wind"][@"deg"] doubleValue];
+        return weatherData[@"weather"][0][@"icon"];
+    }).then(^(NSString *iconID){
+        return [self fetchImageWithImageID:iconID];
+    }).then(^(UIImage *image){
+        self.currentIcon.image = image;
+        self.arrowImageView.layer.affineTransform = CGAffineTransformMakeRotation(DEGREES_TO_RADIANS( self.windDirection));
+    }).catch(^(NSError *error){
         NSLog(@"Error: %@", error);
         self.cityNameLabel.text = @"ERROR";
-    }];
-    
-    
+    });
 }
 
 
-- (void) updateLabelsWithData{
-    self.cityNameLabel.text = self.currentWeatherData[@"name"];
-    self.currentTemperatureLabel.text = [NSString stringWithFormat:@"%@ °C", self.currentWeatherData[@"main"][@"temp"]];
+
+-(PMKPromise *) fetchImageWithImageID:(NSString *)imageID{
     
-    self.currentPressureLabel.text = [NSString stringWithFormat:@"Current pressure: %@ hPa", self.currentWeatherData[@"main"][@"pressure"]];
-    self.currentHumidityLabel.text = [NSString stringWithFormat:@"Current humidity: %@ %%", self.currentWeatherData[@"main"][@"humidity"]];
+    return [PMKPromise promiseWithResolver:^(PMKResolver resolve) {
+        NSString *iconUrl = [NSString stringWithFormat:@"http://openweathermap.org/img/w/%@.png", imageID];
+        
+        AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+        
+        manager.responseSerializer = [AFImageResponseSerializer new];
+        
+        [manager GET:iconUrl parameters:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+            resolve(responseObject);
+        } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+            resolve(error);
+        }];
+        
+    }];
+}
+
+
+
+-(PMKPromise *) fetchCurrentWeatherWithLocation: (CLLocation *)location {
     
-    self.minTemperatureLabel.text = [NSString stringWithFormat:@"Minimum temperature today: %@ °C", self.currentWeatherData[@"main"][@"temp_min"]];
-    self.maxTemperatureLabel.text = [NSString stringWithFormat:@"Maximum temperature today: %@ °C", self.currentWeatherData[@"main"][@"temp_max"]];
+    return [PMKPromise promiseWithResolver:^(PMKResolver resolve) {
+        
+        NSDictionary *parameters = @{//@"q": @"Budapest, hu",
+                                     @"lat": @(location.coordinate.latitude),
+                                     @"lon": @(location.coordinate.longitude),
+                                     @"appid": @"2de143494c0b295cca9337e1e96b00e0",
+                                     @"units": @"metric"};
+        NSString *urlString = @"http://api.openweathermap.org/data/2.5/weather";
+        
+        AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+        [manager GET:urlString parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+            resolve(responseObject);
+        } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+            resolve(error);
+        }];
+        
+    }];
+}
+
+
+- (void) updateLabelsWithData:(NSDictionary *)weatherData{
+    self.cityNameLabel.text = weatherData[@"name"];
+    self.currentTemperatureLabel.text = [NSString stringWithFormat:@"%@ °C", weatherData[@"main"][@"temp"]];
+    
+    self.currentPressureLabel.text = [NSString stringWithFormat:@"Current pressure: %@ hPa", weatherData[@"main"][@"pressure"]];
+    self.currentHumidityLabel.text = [NSString stringWithFormat:@"Current humidity: %@ %%", weatherData[@"main"][@"humidity"]];
+    
+    self.minTemperatureLabel.text = [NSString stringWithFormat:@"Minimum temperature today: %@ °C", weatherData[@"main"][@"temp_min"]];
+    self.maxTemperatureLabel.text = [NSString stringWithFormat:@"Maximum temperature today: %@ °C", weatherData[@"main"][@"temp_max"]];
     
     NSDateFormatter *dateFormatter = [NSDateFormatter new];
     dateFormatter.dateFormat = @"HH:mm";
     
-    NSTimeInterval sunriseTimeStamp = [self.currentWeatherData[@"sys"][@"sunrise"] doubleValue];
-    NSTimeInterval sunsetTimeStamp = [self.currentWeatherData[@"sys"][@"sunset"] doubleValue];
+    NSTimeInterval sunriseTimeStamp = [weatherData[@"sys"][@"sunrise"] doubleValue];
+    NSTimeInterval sunsetTimeStamp = [weatherData[@"sys"][@"sunset"] doubleValue];
     
     NSDate *sunrise = [NSDate dateWithTimeIntervalSince1970:sunriseTimeStamp];
     NSDate *sunset = [NSDate dateWithTimeIntervalSince1970:sunsetTimeStamp];
     self.sunriseLabel.text = [NSString stringWithFormat:@"Daylight: %@ - ", [dateFormatter stringFromDate: sunrise]];
 
     self.sunsetLabel.text = [NSString stringWithFormat:@"%@", [dateFormatter stringFromDate: sunset]];
-    self.currentDescription.text =self.currentWeatherData[@"weather"][0][@"description"];
+    self.currentDescription.text =weatherData[@"weather"][0][@"description"];
 ;
 }
 
